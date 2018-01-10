@@ -1,3 +1,7 @@
+var Restart = require('./restart');
+var Q = require('q');
+var generateEvent = require('./event');
+
 function ReconnectingWebSocket(url, protocols, options) {
     // Default settings
     var settings = {
@@ -7,12 +11,6 @@ function ReconnectingWebSocket(url, protocols, options) {
 
         /** Whether or not the websocket should attempt to connect immediately upon instantiation. */
         automaticOpen: true,
-
-        /** The number of milliseconds to delay before attempting to reconnect. */
-        reconnectInterval: 1000,
-        /** The maximum number of milliseconds to delay a reconnection attempt. */
-        maxReconnectInterval: 30000,
-        /** The rate of increase of the reconnect delay. Allows reconnect attempts to back off when problems persist. */
         reconnectDecay: 1.5,
 
         /** The maximum time in milliseconds to wait for a connection to succeed before closing and retrying. */
@@ -60,30 +58,20 @@ function ReconnectingWebSocket(url, protocols, options) {
     this.protocol = null;
 
     // Private state variables
-
     var self = this;
     var ws;
     var forcedClose = false;
     var timedOut = false;
     var eventTarget = document.createElement('div');
-
+    var reconnectWs = new Restart({
+        max: self.maxReconnectTime,
+        num: self.num,
+        ex: self.ex
+    });
+    var sendMap = {};
     // Wire up "on*" properties as event handlers
 
-    eventTarget.addEventListener('open', function (event) {
-        self.onopen(event);
-    });
-    eventTarget.addEventListener('close', function (event) {
-        self.onclose(event);
-    });
-    eventTarget.addEventListener('connecting', function (event) {
-        self.onconnecting(event);
-    });
-    eventTarget.addEventListener('message', function (event) {
-        self.onmessage(event);
-    });
-    eventTarget.addEventListener('error', function (event) {
-        self.onerror(event);
-    });
+    require('./addevent')(eventTarget, self);
 
     // Expose the API required by EventTarget
 
@@ -91,24 +79,8 @@ function ReconnectingWebSocket(url, protocols, options) {
     this.removeEventListener = eventTarget.removeEventListener.bind(eventTarget);
     this.dispatchEvent = eventTarget.dispatchEvent.bind(eventTarget);
 
-    /**
-     * This function generates an event that is compatible with standard
-     * compliant browsers and IE9 - IE11
-     *
-     * This will prevent the error:
-     * Object doesn't support this action
-     *
-     * http://stackoverflow.com/questions/19345392/why-arent-my-parameters-getting-passed-through-to-a-dispatched-event/19345563#19345563
-     * @param s String The name that the event should use
-     * @param args Object an optional object that the event will use
-     */
-    function generateEvent(s, args) {
-        var evt = document.createEvent("CustomEvent");
-        evt.initCustomEvent(s, false, false, args);
-        return evt;
-    };
 
-    this.open = function (reconnectAttempt) {
+    reconnectWs.run = this.open = function (reconnectAttempt) {
         ws = new WebSocket(self.url, protocols || []);
         ws.binaryType = this.binaryType;
 
@@ -148,7 +120,6 @@ function ReconnectingWebSocket(url, protocols, options) {
             reconnectAttempt = false;
             eventTarget.dispatchEvent(e);
         };
-
         ws.onclose = function (event) {
             clearTimeout(timeout);
             ws = null;
@@ -168,12 +139,7 @@ function ReconnectingWebSocket(url, protocols, options) {
                     }
                     eventTarget.dispatchEvent(generateEvent('close'));
                 }
-
-                var timeout = self.reconnectInterval * Math.pow(self.reconnectDecay, self.reconnectAttempts);
-                setTimeout(function () {
-                    self.reconnectAttempts++;
-                    self.open(true);
-                }, timeout > self.maxReconnectInterval ? self.maxReconnectInterval : timeout);
+                reconnectWs.execute(true);
             }
         };
         ws.onmessage = function (event) {
@@ -191,7 +157,6 @@ function ReconnectingWebSocket(url, protocols, options) {
             eventTarget.dispatchEvent(generateEvent('error'));
         };
     }
-
     // Whether or not to create a websocket upon instantiation
     if (this.automaticOpen == true) {
         this.open(false);
@@ -207,9 +172,50 @@ function ReconnectingWebSocket(url, protocols, options) {
             if (self.debug || ReconnectingWebSocket.debugAll) {
                 console.debug('ReconnectingWebSocket', 'send', self.url, data);
             }
-            ws.send(JSON.stringify(data));
-            return this;
-            // return ws.send(data);
+            var key = JSON.stringify(data);
+            ws.send(key);
+
+            // var addEventFn = sendMap[key];
+            // if (addEventFn) {
+            //     self.removeEventListener(key, addEventFn);
+            // }
+            // sendMap[key] = function (event) {
+            //     fun(event.detail);
+            // };
+            //
+            // self.addEventListener(key, sendMap[key]);
+
+            // return {
+            //     then:function(onFulfilled, onRejected){
+            //         var addEventFn = sendMap[key];
+            //         if (addEventFn) {
+            //             self.removeEventListener(key, addEventFn);
+            //         }
+            //         sendMap[key] = function (event) {
+            //             onFulfilled(event.detail);
+            //         };
+            //
+            //         self.addEventListener(key, sendMap[key]);
+            //     }
+            // };
+
+            return Q.promise(function (resolve, reject) {
+                try {
+                    var addEventFn = sendMap[key];
+                    if (addEventFn) {
+                        self.removeEventListener(key, addEventFn);
+                    }
+                    sendMap[key] = function (event) {
+                        resolve(event.detail);
+                        console.log(event.detail)
+                    };
+
+                    self.addEventListener(key, sendMap[key]);
+                } catch (e) {
+                    reject(e);
+                }
+            });
+
         } else {
             throw 'INVALID_STATE_ERR : Pausing to reconnect websocket';
         }
@@ -224,7 +230,7 @@ function ReconnectingWebSocket(url, protocols, options) {
         if (typeof code == 'undefined') {
             code = 1000;
         }
-        forcedClose = true;
+        // forcedClose = true;
         if (ws) {
             ws.close(code, reason);
         }
@@ -255,6 +261,12 @@ ReconnectingWebSocket.prototype.onconnecting = function (event) {
 };
 /** An event listener to be called when a message is received from the server. */
 ReconnectingWebSocket.prototype.onmessage = function (event) {
+    var data = event.data;
+    if (data) {
+        data = JSON.parse(data);
+        var requestEvent = generateEvent(JSON.stringify(data.request), data);
+        this.dispatchEvent(requestEvent);
+    }
 };
 /** An event listener to be called when an error occurs. */
 ReconnectingWebSocket.prototype.onerror = function (event) {
@@ -270,4 +282,4 @@ ReconnectingWebSocket.CONNECTING = WebSocket.CONNECTING;
 ReconnectingWebSocket.OPEN = WebSocket.OPEN;
 ReconnectingWebSocket.CLOSING = WebSocket.CLOSING;
 ReconnectingWebSocket.CLOSED = WebSocket.CLOSED;
-// module.default = ReconnectingWebSocket;
+module.exports = ReconnectingWebSocket;
