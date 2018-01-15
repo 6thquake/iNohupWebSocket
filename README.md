@@ -20,5 +20,5 @@ gulp
 
 ```
 
-###### 需要引入Q，支持AMD、CMD
+###### 需要引入[Q](https://github.com/kriskowal/q)，支持AMD、CMD 
 
