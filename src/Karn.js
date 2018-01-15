@@ -32,7 +32,10 @@ function Karn(options) {
 /**
  *  @TODO reset
  */
-Karn.prototype.reset = function() {};
+Karn.prototype.reset = function() {
+    this.exponential = 0;
+    _beyondMaxWaitTime = false;
+};
 
 Karn.prototype.execute = (function() {
     var getWaitTime = function(base, exponential, maxWaitTime) {
@@ -53,10 +56,7 @@ Karn.prototype.execute = (function() {
         var self = this;
         var argus = arguments;
         clearTimeout(_runTimeout);
-
-        getWaitTime(self.base, self.exponential++, self.maxWaitTime)
-
-        var _waitTime = getWaitTime() * 1000;
+        var _waitTime = getWaitTime(self.base, self.exponential++, self.maxWaitTime) * 1000;
         _runTimeout = setTimeout(function() {
             self.run(argus);
         }, _waitTime);

@@ -1,3 +1,12 @@
+;(function(root, factory) {
+  if (typeof define === 'function' && define.amd) {
+    define([], factory);
+  } else if (typeof exports === 'object') {
+    module.exports = factory();
+  } else {
+    root.NohupWebSocket = factory();
+  }
+}(this, function() {
 function generateEvent(s, args) {
     var evt = document.createEvent("CustomEvent");
     evt.initCustomEvent(s, false, false, args);
@@ -71,7 +80,6 @@ function NohupWebSocket(url, protocols, options) {
             console.debug('NohupWebSocket', 'attempt-connect', self.url);
         }
         ws.onopen = function(event) {
-            reconnectWs.reset();
             if (self.debug || NohupWebSocket.debugAll) {
                 console.debug('NohupWebSocket', 'onopen', self.url);
             }
@@ -223,3 +231,5 @@ NohupWebSocket.getInstance = function(url, protocols, options) {
     }
     return NohupWebSocket.instance;
 };
+return NohupWebSocket;
+}));

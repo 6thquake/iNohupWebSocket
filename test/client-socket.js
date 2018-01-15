@@ -1,4 +1,4 @@
-var ws = NohupWebSocket.getInstance('ws://10.2.44.97/websocket');
+var ws = NohupWebSocket.getInstance('ws://localhost:8080/');
 ws.addEventListener('open',function () {
     ws.send({user: "jxzhuang", namespace: "tsbot"});
 });
