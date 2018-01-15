@@ -1,14 +1,11 @@
 {
-  "name": "iNohupWebSocket",
-  "version": "0.0.1",
-  "artifact": "iNohupWebSocket",
-  "group": "com.ctrip",
-  "description": "nohup websocket client with karn, ping pong, promise and so on.",
-  "main": "./dist/NohupWebSocket.js",
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+  "loglevel": "debug",
+  "snapshort": true,
+  "target": "local",
+  "organization": {
+    "name": "",
+    "url": ""
   },
-  "author": "liujc, jxzhuang, yx_zhang",
   "contributors": [],
   "developers": [{
     "id": "liujc",
@@ -26,7 +23,12 @@
     "email": "yx_zhang@ctrip.com",
     "url": "http://git.dev.sh.ctripcorp.com/u/yx_zhang"
   }],
-  "license": "MIT",
+  "manual": {
+    "url": "",
+    "email": ""
+  },
+  "overrides": {},
+  "resolutions": {},
   "dependencies": {
     "q": "^1.5.1"
   },
@@ -41,5 +43,28 @@
     "gulp-uglifyjs": "^0.6.2",
     "gulp-umd": "^0.2.1",
     "gulp-watch": "^5.0.0"
-  }
+  },
+  "homepage": "",
+  "bugs": {
+    "url": ""
+  },
+  "repository": {
+    "type": "git",
+    "url": ""
+  },
+  "main": [
+    "./dist/NohupWebSocket.js"
+  ],
+  "keywords": "",
+  "define": "cmd",
+  "debug": true,
+  "license": "MIT",
+  "private": false,
+  "description": "nohup websocket client with karn, ping pong, promise and so on.",
+  "title": "",
+  "name": "iNohupWebSocket",
+  "version": "0.0.1",
+  "artifact": "iNohupWebSocket",
+  "group": "com.ctrip",
+  "output": "dist"
 }

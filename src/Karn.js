@@ -1,8 +1,10 @@
-var _beyondMaxWaitTime = false,_runTimeout;
-function ExponentialBackoff(options) {
+var _beyondMaxWaitTime = false,
+    _runTimeout;
+
+function Karn(options) {
     var _options = {
         maxWaitTime: 30,
-        run: function () {
+        run: function() {
             this.execute();
         },
         base: 2,
@@ -26,25 +28,37 @@ function ExponentialBackoff(options) {
         this[k] = _options[k];
     }
 }
-ExponentialBackoff.prototype.execute = function () {
-    var self = this;
-    var argus = arguments;
-    clearTimeout(_runTimeout);
-    function getWaitTime() {
+
+/**
+ *  @TODO reset
+ */
+Karn.prototype.reset = function() {};
+
+Karn.prototype.execute = (function() {
+    var getWaitTime = function(base, exponential, maxWaitTime) {
         var _currentWaitTime;
         if (!_beyondMaxWaitTime) {
-            _currentWaitTime = Math.pow(self.base, self.exponential++);
-        }else {
-            return self.maxWaitTime;
+            _currentWaitTime = Math.pow(base, exponential);
+        } else {
+            return maxWaitTime;
         }
-        if (_currentWaitTime >= self.maxWaitTime) {
-            _currentWaitTime = self.maxWaitTime;
+        if (_currentWaitTime >= maxWaitTime) {
+            _currentWaitTime = maxWaitTime;
             _beyondMaxWaitTime = true;
         }
         return _currentWaitTime;
-    }
-    var _waitTime = getWaitTime() * 1000;
-    _runTimeout = setTimeout(function () {
-        self.run(argus);
-    }, _waitTime);
-};
+    };
+
+    return function() {
+        var self = this;
+        var argus = arguments;
+        clearTimeout(_runTimeout);
+
+        getWaitTime(self.base, self.exponential++, self.maxWaitTime)
+
+        var _waitTime = getWaitTime() * 1000;
+        _runTimeout = setTimeout(function() {
+            self.run(argus);
+        }, _waitTime);
+    };
+})();
