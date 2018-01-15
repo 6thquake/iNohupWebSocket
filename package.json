@@ -1,10 +1,10 @@
 {
-  "name": "iNohupWebSocket",
-  "version": "0.0.1",
-  "artifact": "iNohupWebSocket",
+  "name": "com.ctrip.component.iNohupWebSocket",
   "group": "com.ctrip",
+  "version": "0.0.1",
+  "artifact": "component.iNohupWebSocket",
   "description": "nohup websocket client with karn, ping pong, promise and so on.",
-  "main": "./dist/NohupWebSocket.js",
+  "main": "dist/NohupWebSocket.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },

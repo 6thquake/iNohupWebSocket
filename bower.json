@@ -53,7 +53,7 @@
     "url": ""
   },
   "main": [
-    "./dist/NohupWebSocket.js"
+    "dist/NohupWebSocket.js"
   ],
   "keywords": "",
   "define": "cmd",
@@ -62,9 +62,9 @@
   "private": false,
   "description": "nohup websocket client with karn, ping pong, promise and so on.",
   "title": "",
-  "name": "iNohupWebSocket",
-  "version": "0.0.1",
-  "artifact": "iNohupWebSocket",
+  "name": "com.ctrip.component.iNohupWebSocket",
   "group": "com.ctrip",
+  "version": "0.0.1",
+  "artifact": "component.iNohupWebSocket",
   "output": "dist"
 }
