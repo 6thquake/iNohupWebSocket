@@ -1,32 +1,16 @@
-var Restart = require('./ExponentialBackoff');
-var Q = require('q');
-var generateEvent = require('./generateEvent');
-
+var Restart = ExponentialBackoff;
 function NohupWebSocket(url, protocols, options) {
     // Default settings
     var settings = {
-
-        /** Whether this instance should log debug messages. */
         debug: false,
-
-        /** Whether or not the websocket should attempt to connect immediately upon instantiation. */
         automaticOpen: true,
-        reconnectDecay: 1.5,
-
-        /** The maximum time in milliseconds to wait for a connection to succeed before closing and retrying. */
         timeoutInterval: 2000,
-
-        /** The maximum number of reconnection attempts to make. Unlimited if null. */
         maxReconnectAttempts: null,
-
-        /** The binary type, possible values 'blob' or 'arraybuffer', default 'blob'. */
         binaryType: 'blob'
-    }
+    };
     if (!options) {
         options = {};
     }
-
-    // Overwrite and define settings with options if they exist.
     for (var key in settings) {
         if (typeof options[key] !== 'undefined') {
             this[key] = options[key];
@@ -34,82 +18,36 @@ function NohupWebSocket(url, protocols, options) {
             this[key] = settings[key];
         }
     }
-
-    // These should be treated as read-only properties
-
-    /** The URL as resolved by the constructor. This is always an absolute URL. Read only. */
     this.url = url;
-
-    /** The number of attempted reconnects since starting, or the last successful connection. Read only. */
     this.reconnectAttempts = 0;
-
-    /**
-     * The current state of the connection.
-     * Can be one of: WebSocket.CONNECTING, WebSocket.OPEN, WebSocket.CLOSING, WebSocket.CLOSED
-     * Read only.
-     */
     this.readyState = WebSocket.CONNECTING;
-
-    /**
-     * A string indicating the name of the sub-protocol the server selected; this will be one of
-     * the strings specified in the protocols parameter when creating the WebSocket object.
-     * Read only.
-     */
     this.protocol = null;
-
     // Private state variables
     var self = this;
     var ws;
     var forcedClose = false;
-    var timedOut = false;
     var eventTarget = document.createElement('div');
     var reconnectWs = new Restart({
-        max: self.maxReconnectTime,
-        num: self.num,
-        ex: self.ex
+        maxWaitTime: self.maxReconnectWaitTime,
+        base: self.reconnectBaseTime
     });
     this.sendMap = {};
     this.subMap = {};
-    // Wire up "on*" properties as event handlers
-
-    require('./addevent')(eventTarget, self);
-
-    // Expose the API required by EventTarget
-
+    addEvent(eventTarget, self);
     this.addEventListener = eventTarget.addEventListener.bind(eventTarget);
     this.removeEventListener = eventTarget.removeEventListener.bind(eventTarget);
     this.dispatchEvent = eventTarget.dispatchEvent.bind(eventTarget);
-
-
     reconnectWs.run = this.open = function (reconnectAttempt) {
         ws = new WebSocket(self.url, protocols || []);
         ws.binaryType = this.binaryType;
-
-        if (reconnectAttempt) {
-            if (this.maxReconnectAttempts && this.reconnectAttempts > this.maxReconnectAttempts) {
-                return;
-            }
-        } else {
+        if (!reconnectAttempt) {
             eventTarget.dispatchEvent(generateEvent('connecting'));
             this.reconnectAttempts = 0;
         }
-
         if (self.debug || NohupWebSocket.debugAll) {
             console.debug('NohupWebSocket', 'attempt-connect', self.url);
         }
-
-        var localWs = ws;
-        var timeout = setTimeout(function () {
-            if (self.debug || NohupWebSocket.debugAll) {
-                console.debug('NohupWebSocket', 'connection-timeout', self.url);
-            }
-            timedOut = true;
-            localWs.close();
-            timedOut = false;
-        }, self.timeoutInterval);
-
         ws.onopen = function (event) {
-            clearTimeout(timeout);
             if (self.debug || NohupWebSocket.debugAll) {
                 console.debug('NohupWebSocket', 'onopen', self.url);
             }
@@ -122,7 +60,6 @@ function NohupWebSocket(url, protocols, options) {
             eventTarget.dispatchEvent(e);
         };
         ws.onclose = function (event) {
-            clearTimeout(timeout);
             ws = null;
             if (forcedClose) {
                 self.readyState = WebSocket.CLOSED;
@@ -134,12 +71,12 @@ function NohupWebSocket(url, protocols, options) {
                 e.reason = event.reason;
                 e.wasClean = event.wasClean;
                 eventTarget.dispatchEvent(e);
-                if (!reconnectAttempt && !timedOut) {
-                    if (self.debug || NohupWebSocket.debugAll) {
-                        console.debug('NohupWebSocket', 'onclose', self.url);
-                    }
-                    eventTarget.dispatchEvent(generateEvent('close'));
-                }
+                // if (!reconnectAttempt && !timedOut) {
+                //     if (self.debug || NohupWebSocket.debugAll) {
+                //         console.debug('NohupWebSocket', 'onclose', self.url);
+                //     }
+                //     eventTarget.dispatchEvent(generateEvent('close'));
+                // }
                 reconnectWs.execute(true);
             }
         };
@@ -157,29 +94,20 @@ function NohupWebSocket(url, protocols, options) {
             }
             eventTarget.dispatchEvent(generateEvent('error'));
         };
-    }
-    // Whether or not to create a websocket upon instantiation
+    };
     if (this.automaticOpen == true) {
         this.open(false);
     }
-
-    /**
-     * Transmits data to the server over the WebSocket connection.
-     *
-     * @param data a text string, ArrayBuffer or Blob to send to the server.
-     */
     this.send = function (data) {
         if (ws) {
             if (self.debug || NohupWebSocket.debugAll) {
                 console.debug('NohupWebSocket', 'send', self.url, data);
             }
-            var key = JSON.stringify(data);
+            var key = JSON.stringify(data),
+                deferred = Q.defer();
             ws.send(key);
-
-            var deferred = Q.defer();
             self.sendMap[key] = deferred;
             return deferred.promise;
-
         } else {
             throw 'INVALID_STATE_ERR : Pausing to reconnect websocket';
         }
@@ -188,9 +116,9 @@ function NohupWebSocket(url, protocols, options) {
         var key = JSON.stringify(data);
         var deferred = Q.defer();
         var subs = self.subMap[key];
-        if(subs){
+        if (subs) {
             subs.push(deferred);
-        }else {
+        } else {
             self.subMap[key] = [deferred];
         }
         return deferred.promise;
@@ -269,11 +197,9 @@ NohupWebSocket.CONNECTING = WebSocket.CONNECTING;
 NohupWebSocket.OPEN = WebSocket.OPEN;
 NohupWebSocket.CLOSING = WebSocket.CLOSING;
 NohupWebSocket.CLOSED = WebSocket.CLOSED;
-NohupWebSocket.getInstance = function () {
+NohupWebSocket.getInstance = function (url, protocols, options) {
     if (!NohupWebSocket.instance) {
-        NohupWebSocket.instance = new NohupWebSocket('ws://10.2.44.97/websocket');
+        NohupWebSocket.instance = new NohupWebSocket(url, protocols, options);
     }
     return NohupWebSocket.instance;
 };
-// return NohupWebSocket;
-module.exports = NohupWebSocket;

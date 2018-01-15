@@ -1,7 +1,7 @@
 var _beyondMaxWaitTime = false,_runTimeout;
 function ExponentialBackoff(options) {
     var _options = {
-        maxWaitTime: 10,
+        maxWaitTime: 30,
         run: function () {
             this.execute();
         },
@@ -43,13 +43,8 @@ ExponentialBackoff.prototype.execute = function () {
         }
         return _currentWaitTime;
     }
-
-    var waitTime = getWaitTime() * 1000;
+    var _waitTime = getWaitTime() * 1000;
     _runTimeout = setTimeout(function () {
         self.run(argus);
-    }, waitTime);
+    }, _waitTime);
 };
-var p = new ExponentialBackoff();
-p.execute();
-module.exports = ExponentialBackoff;
-

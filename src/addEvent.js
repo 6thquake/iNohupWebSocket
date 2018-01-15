@@ -1,4 +1,4 @@
-module.exports = function (eventTarget,self) {
+function addEvent(eventTarget,self) {
     eventTarget.addEventListener('open', function (event) {
         self.onopen(event);
     });

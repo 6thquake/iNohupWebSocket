@@ -1,23 +1,31 @@
 const gulp = require('gulp');
-const babel = require('gulp-babel');
 const watch = require('gulp-watch');
-const browserify = require('gulp-browserify');
-const uglify = require('gulp-uglify');
-gulp.task('babel', () => {
-    gulp.src('src/index.js')
-        .pipe(babel())
-        .pipe(browserify())
+const uglifyjs = require('gulp-uglifyjs');
+const umd = require('gulp-umd');
+const concat = require('gulp-concat');
+gulp.task('umd', () => {
+    gulp.src(['src/generateEvent.js','src/addEvent.js','src/ExponentialBackoff.js','src/NohupWebSocket.js'])
+        .pipe(concat('index.js'))
+        .pipe(umd({
+            exports:function (file) {
+                return 'NohupWebSocket';
+            },
+            namespace:function (file) {
+                return 'NohupWebSocket';
+            }
+        }))
         .pipe(gulp.dest('dist'));
-    console.log('babel ok');
+    console.log('umd ok');
 });
-gulp.task('uglify',()=>{
+gulp.task('uglifyjs',()=>{
     gulp.src('dist/index.js')
-        .pipe(uglify())
+        .pipe(uglifyjs('index.min.js'))
         .pipe(gulp.dest('dist'));
+    console.log('uglify ok');
 });
 gulp.task('watch', () => {
-    gulp.watch('src/*.js', ['babel']);
+    gulp.watch('src/*.js', ['umd','uglifyjs']);
     console.log('watch ok');
 });
 
-gulp.task('default', ['babel','watch']);
+gulp.task('default', ['umd','uglifyjs','watch']);
