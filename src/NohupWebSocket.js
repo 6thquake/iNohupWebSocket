@@ -111,6 +111,17 @@ function NohupWebSocket(url, protocols, options) {
             var e = generateEvent('message');
             e.data = event.data;
             eventTarget.dispatchEvent(e);
+
+            var data = event.data;
+            if (data) {
+                data = JSON.parse(data);
+                if (data == 'pong' ||
+                    (data &&
+                        (data.data == 'pong' ||
+                            (data.request && data.request.url == "ping")))) {
+                    self.pong();
+                }
+            }
         };
         ws.onerror = function(event) {
             if (self.debug || NohupWebSocket.debugAll) {
@@ -122,6 +133,7 @@ function NohupWebSocket(url, protocols, options) {
     if (this.automaticOpen == true) {
         this.open(false);
     }
+
     this.send = function(data) {
         if (ws) {
             if (self.debug || NohupWebSocket.debugAll) {
@@ -136,6 +148,7 @@ function NohupWebSocket(url, protocols, options) {
             throw 'INVALID_STATE_ERR : Pausing to reconnect websocket';
         }
     };
+
     this.sub = function(data) {
         var key = JSON.stringify(data);
         var deferred = Q.defer();
@@ -148,6 +161,11 @@ function NohupWebSocket(url, protocols, options) {
         return deferred.promise;
     };
 
+    this.pong = function() {
+        this.send({
+            url: 'pong'
+        });
+    };
     /**
      * Closes the WebSocket connection or connection attempt, if any.
      * If the connection is already CLOSED, this method does nothing.
