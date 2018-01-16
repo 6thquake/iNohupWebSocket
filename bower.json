@@ -30,7 +30,7 @@
   "overrides": {},
   "resolutions": {},
   "dependencies": {
-    "q": "^1.5.1"
+    "q": "1.0.1"
   },
   "devDependencies": {
     "babel-core": "^6.26.0",
@@ -64,7 +64,7 @@
   "title": "",
   "name": "com.ctrip.component.iNohupWebSocket",
   "group": "com.ctrip",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "artifact": "component.iNohupWebSocket",
   "output": "dist"
 }
