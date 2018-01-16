@@ -115,10 +115,10 @@ function NohupWebSocket(url, protocols, options) {
             var data = event.data;
             if (data) {
                 data = JSON.parse(data);
-                if (data == 'pong' ||
+                if (data == 'ping' ||
                     (data &&
-                        (data.data == 'pong' ||
-                            (data.request && data.request.url == "ping")))) {
+                        (data.data == 'ping' ||
+                            (data.request && data.request.url == "pong")))) {
                     self.pong();
                 }
             }
@@ -162,9 +162,10 @@ function NohupWebSocket(url, protocols, options) {
     };
 
     this.pong = function() {
-        this.send({
-            url: 'pong'
-        });
+        // this.send({
+        //     url: 'pong'
+        // });
+        this.send("pong");
     };
     /**
      * Closes the WebSocket connection or connection attempt, if any.
