@@ -108,20 +108,25 @@ function NohupWebSocket(url, protocols, options) {
             if (self.debug || NohupWebSocket.debugAll) {
                 console.debug('NohupWebSocket', 'onmessage', self.url, event.data);
             }
-            var e = generateEvent('message');
-            e.data = event.data;
-            eventTarget.dispatchEvent(e);
 
-            var data = event.data;
-            if (data) {
-                data = JSON.parse(data);
-                if (data == 'ping' ||
-                    (data &&
-                        (data.data == 'ping' ||
-                            (data.request && data.request.url == "pong")))) {
-                    self.pong();
-                }
+            var data = null;
+
+            try {
+                data = JSON.parse(event.data);
+            } catch (e) {
+                data = event.data;
             }
+
+            if (data == 'ping' ||
+                (data &&
+                    (data.data == 'ping' ||
+                        (data.request && data.request.url == "ping")))) {
+                self.pong();
+            }
+
+            var e = generateEvent('message');
+            e.data = data;
+            eventTarget.dispatchEvent(e);
         };
         ws.onerror = function(event) {
             if (self.debug || NohupWebSocket.debugAll) {
@@ -206,10 +211,10 @@ NohupWebSocket.prototype.onconnecting = function(event) {};
 
 
 NohupWebSocket.prototype.onmessage = function(event) {
-    var data = event.data;
     var self = this;
-    if (data) {
-        data = JSON.parse(data);
+    var data = event.data;
+
+    if (data && data.request) {
         var key = JSON.stringify(data.request),
             send = self.sendMap[key],
             subs = self.subMap[key];
