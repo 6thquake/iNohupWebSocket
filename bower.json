@@ -63,8 +63,8 @@
   "description": "nohup websocket client with karn, ping pong, promise and so on.",
   "title": "",
   "name": "com.ctrip.component.iNohupWebSocket",
-  "group": "com.ctrip",
+  "group": "com.ctrip.component",
   "version": "0.0.5",
-  "artifact": "component.iNohupWebSocket",
+  "artifact": "iNohupWebSocket",
   "output": "dist"
 }
