@@ -1,7 +1,7 @@
 {
   "name": "com.ctrip.component.iNohupWebSocket",
   "group": "com.ctrip.component",
-  "version": "0.0.5",
+  "version": "0.0.6",
   "artifact": "iNohupWebSocket",
   "description": "nohup websocket client with karn, ping pong, promise and so on.",
   "main": "dist/NohupWebSocket.js",

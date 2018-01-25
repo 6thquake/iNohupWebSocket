@@ -6,7 +6,7 @@
   } else {
     root.NohupWebSocket = factory(root.Q);
   }
-}(this, function(q) {
+}(this, function(Q) {
 var _beyondMaxWaitTime = false,
     _runTimeout;
 
@@ -95,6 +95,36 @@ function addEvent(eventTarget, self) {
     });
 };
 
+function isString(v) {
+    return typeof v === "string" || v instanceof String;
+}
+
+function getRequestKey(data) {
+    var param = data;
+    if (!param) {
+        return null;
+    }
+
+    if (isString(param)) {
+        param = {
+            url: param
+        }
+    }
+
+    if (!param.method) {
+        param.method = 'GET';
+    }
+
+    var key = null;
+    if (param.url) {
+        key = ["strict:", param.method.toUpperCase(), ":", param.url.split("?")[0]].join("");
+    } else {
+        key = JSON.stringify(param);
+    }
+
+    return key;
+};
+
 function NohupWebSocket(url, protocols, options) {
     // Default settings
     var settings = {
@@ -129,6 +159,7 @@ function NohupWebSocket(url, protocols, options) {
     });
     this.sendMap = {};
     this.subMap = {};
+    this.patternMap = {};
     addEvent(eventTarget, self);
     this.addEventListener = eventTarget.addEventListener.bind(eventTarget);
     this.removeEventListener = eventTarget.removeEventListener.bind(eventTarget);
@@ -217,9 +248,9 @@ function NohupWebSocket(url, protocols, options) {
             if (self.debug || NohupWebSocket.debugAll) {
                 console.debug('NohupWebSocket', 'send', self.url, data);
             }
-            var key = JSON.stringify(data),
+            var key = getRequestKey(data),
                 deferred = Q.defer();
-            ws.send(key);
+            ws.send(JSON.stringify(data));
             self.sendMap[key] = deferred;
             return deferred.promise;
         } else {
@@ -228,7 +259,7 @@ function NohupWebSocket(url, protocols, options) {
     };
 
     this.sub = function(data) {
-        var key = JSON.stringify(data);
+        var key = getRequestKey(data);
         var deferred = Q.defer();
         var subs = self.subMap[key];
         if (subs) {
@@ -239,12 +270,67 @@ function NohupWebSocket(url, protocols, options) {
         return deferred.promise;
     };
 
+    this.psub = function(data) {
+        var key = getRequestKey(data);
+        var deferred = Q.defer();
+        if (!key.startsWith("strict:")) {
+            return;
+        }
+
+        key = key.substring(7);
+
+        var subs = self.patternMap[key];
+        if (subs) {
+            subs.push(deferred);
+        } else {
+            self.patternMap[key] = [deferred];
+        }
+        return deferred.promise;
+    };
+
+    this.unsub = function(data) {
+        var key = getRequestKey(data);
+        var subs = self.subMap[key];
+        if (subs) {
+            self.subMap[key] = null;
+            delete self.subMap[key];
+        }
+        return true;
+    };
+
+    this.unpsub = function(data) {
+        var key = getRequestKey(data),
+            psubs = this.patternMap[key];
+
+        var keys = [];
+
+        var ks = null,
+            pMethod = null,
+            pUrl = null,
+            val = null;
+        for (var i in psubs) {
+            ks = i.split(":");
+            pMethod = ks[0];
+            pUrl = ks[1];
+            val = psubs[i];
+            if (val && pMethod == _method && new RegExp(pUrl, "ig").test(_url)) {
+                keys.push(i);
+            }
+        }
+
+        keys.forEach(function(item) {
+            psubs[item] = null;
+            delete psubs[item];
+        })
+    };
+
     this.pong = function() {
         // this.send({
         //     url: 'pong'
         // });
         this.send("pong");
     };
+
     /**
      * Closes the WebSocket connection or connection attempt, if any.
      * If the connection is already CLOSED, this method does nothing.
@@ -282,20 +368,47 @@ NohupWebSocket.prototype.onclose = function(event) {};
 NohupWebSocket.prototype.onconnecting = function(event) {};
 /** An event listener to be called when a message is received from the server. */
 
-
 NohupWebSocket.prototype.onmessage = function(event) {
     var self = this;
     var data = event.data;
 
-    if (data && data.request) {
-        var key = JSON.stringify(data.request),
-            send = self.sendMap[key],
-            subs = self.subMap[key];
-        if (send) {
-            send.notify(data);
-        }
-        if (subs) {
-            subs.forEach(function(item) {
+    if (!data || !data.request) {
+        return;
+    }
+    var request = data.request,
+        _url = request.url,
+        _method = request.method || "GET";
+
+    if (!_url) {
+        return;
+    }
+
+    var key = getRequestKey(request),
+        send = self.sendMap[key],
+        subs = self.subMap[key],
+        psubs = self.patternMap;
+
+    if (send) {
+        send.notify(data);
+    }
+
+    if (subs) {
+        subs.forEach(function(item) {
+            item.notify(data);
+        });
+    }
+
+    var ks = null,
+        pMethod = null,
+        pUrl = null,
+        val = null;
+    for (var i in psubs) {
+        ks = i.split(":");
+        pMethod = ks[0];
+        pUrl = ks[1];
+        val = psubs[i];
+        if (val && pMethod == _method && new RegExp(pUrl, "ig").test(_url)) {
+            val.forEach(function(item) {
                 item.notify(data);
             });
         }

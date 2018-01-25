@@ -9,7 +9,7 @@ gulp.task('umd', () => {
         .pipe(umd({
             dependencies: function(file) {
                 return [{
-                    name: 'q',
+                    name: 'Q',
                     amd: 'q',
                     cjs: 'q',
                     global: 'Q'
