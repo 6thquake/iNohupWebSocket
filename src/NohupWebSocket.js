@@ -77,22 +77,26 @@ function NohupWebSocket(url, protocols, options) {
     this.protocol = null;
     // Private state variables
     var self = this;
-    var ws;
     var forcedClose = false;
     var eventTarget = document.createElement('div');
     var reconnectWs = new Karn({
         maxWaitTime: self.maxReconnectWaitTime,
         base: self.reconnectBaseTime
     });
+
     this.sendMap = {};
     this.subMap = {};
     this.patternMap = {};
+    this.receives = [];
+    this.notifications = [];
+    this.billboards = [];
+
     addEvent(eventTarget, self);
     this.addEventListener = eventTarget.addEventListener.bind(eventTarget);
     this.removeEventListener = eventTarget.removeEventListener.bind(eventTarget);
     this.dispatchEvent = eventTarget.dispatchEvent.bind(eventTarget);
     reconnectWs.run = this.open = function(reconnectAttempt) {
-        ws = new WebSocket(self.url, protocols || []);
+        var ws = new WebSocket(self.url, protocols || []);
         ws.binaryType = this.binaryType;
         if (!reconnectAttempt) {
             eventTarget.dispatchEvent(generateEvent('connecting'));
@@ -106,7 +110,7 @@ function NohupWebSocket(url, protocols, options) {
             if (self.debug || NohupWebSocket.debugAll) {
                 console.debug('NohupWebSocket', 'onopen', self.url);
             }
-            self.protocol = ws.protocol;
+            self.protocol = ws ? ws.protocol : null;
             self.readyState = WebSocket.OPEN;
             self.reconnectAttempts = 0;
             var e = generateEvent('open');
@@ -116,6 +120,7 @@ function NohupWebSocket(url, protocols, options) {
         };
         ws.onclose = function(event) {
             ws = null;
+            self.ws = null;
             if (forcedClose) {
                 self.readyState = WebSocket.CLOSED;
                 eventTarget.dispatchEvent(generateEvent('close'));
@@ -165,123 +170,11 @@ function NohupWebSocket(url, protocols, options) {
             }
             eventTarget.dispatchEvent(generateEvent('error'));
         };
+        self.ws = ws;
     };
     if (this.automaticOpen == true) {
         this.open(false);
     }
-
-    this.send = function(data) {
-        if (ws) {
-            if (self.debug || NohupWebSocket.debugAll) {
-                console.debug('NohupWebSocket', 'send', self.url, data);
-            }
-            var key = getRequestKey(data),
-                deferred = Q.defer();
-            ws.send(JSON.stringify(data));
-            self.sendMap[key] = deferred;
-            return deferred.promise;
-        } else {
-            throw 'INVALID_STATE_ERR : Pausing to reconnect websocket';
-        }
-    };
-
-    this.sub = function(data) {
-        var key = getRequestKey(data);
-        var deferred = Q.defer();
-        var subs = self.subMap[key];
-        if (subs) {
-            subs.push(deferred);
-        } else {
-            self.subMap[key] = [deferred];
-        }
-        return deferred.promise;
-    };
-
-    this.psub = function(data) {
-        var key = getRequestKey(data);
-        var deferred = Q.defer();
-        if (!key.startsWith("strict:")) {
-            return;
-        }
-
-        key = key.substring(7);
-
-        var subs = self.patternMap[key];
-        if (subs) {
-            subs.push(deferred);
-        } else {
-            self.patternMap[key] = [deferred];
-        }
-        return deferred.promise;
-    };
-
-    this.unsub = function(data) {
-        var key = getRequestKey(data);
-        var subs = self.subMap[key];
-        if (subs) {
-            self.subMap[key] = null;
-            delete self.subMap[key];
-        }
-        return true;
-    };
-
-    this.unpsub = function(data) {
-        var key = getRequestKey(data),
-            psubs = this.patternMap[key];
-
-        var keys = [];
-
-        var ks = null,
-            pMethod = null,
-            pUrl = null,
-            val = null;
-        for (var i in psubs) {
-            ks = i.split(":");
-            pMethod = ks[0];
-            pUrl = ks[1];
-            val = psubs[i];
-            if (val && pMethod == _method && new RegExp(pUrl, "ig").test(_url)) {
-                keys.push(i);
-            }
-        }
-
-        keys.forEach(function(item) {
-            psubs[item] = null;
-            delete psubs[item];
-        })
-    };
-
-    this.pong = function() {
-        // this.send({
-        //     url: 'pong'
-        // });
-        this.send("pong");
-    };
-
-    /**
-     * Closes the WebSocket connection or connection attempt, if any.
-     * If the connection is already CLOSED, this method does nothing.
-     */
-    this.close = function(code, reason) {
-        // Default CLOSE_NORMAL code
-        if (typeof code == 'undefined') {
-            code = 1000;
-        }
-        // forcedClose = true;
-        if (ws) {
-            ws.close(code, reason);
-        }
-    };
-
-    /**
-     * Additional public API method to refresh the connection if still open (close, re-open).
-     * For example, if the app suspects bad data / missed heart beats, it can try to refresh.
-     */
-    this.refresh = function() {
-        if (ws) {
-            ws.close();
-        }
-    };
 }
 
 /**
@@ -296,16 +189,20 @@ NohupWebSocket.prototype.onconnecting = function(event) {};
 /** An event listener to be called when a message is received from the server. */
 
 NohupWebSocket.prototype.onmessage = function(event) {
-    var self = this;
     var data = event.data;
 
     if (!data) {
         return;
     }
 
+    // execute callback after receive any messages
+    this.receives.forEach(function(item) {
+        item.notify(data);
+    });
+
     if (data.type === "NOTIFICATION") {
         var message = data.data;
-        self.notify({
+        this.notify({
             title: message.title,
             icon: message.icon,
             body: message.message,
@@ -320,6 +217,17 @@ NohupWebSocket.prototype.onmessage = function(event) {
             actions: message.actions || [],
             from: message.from || {},
             handler: message.handler
+        });
+
+        // execute callback after receive any notifications
+        this.notifications.forEach(function(item) {
+            item.notify(data);
+        });
+        return;
+    } else if (data.type === "BILLBOARD") {
+        // execute callback after receive any notifications
+        this.billboards.forEach(function(item) {
+            item.notify(data);
         });
         return;
     }
@@ -337,9 +245,9 @@ NohupWebSocket.prototype.onmessage = function(event) {
     }
 
     var key = getRequestKey(_request),
-        send = self.sendMap[key],
-        subs = self.subMap[key],
-        psubs = self.patternMap;
+        send = this.sendMap[key],
+        subs = this.subMap[key],
+        psubs = this.patternMap;
 
     if (send) {
         send.notify(data);
@@ -369,6 +277,7 @@ NohupWebSocket.prototype.onmessage = function(event) {
 };
 /** An event listener to be called when an error occurs. */
 NohupWebSocket.prototype.onerror = function(event) {};
+
 
 NohupWebSocket.prototype.notify = function(data) {
     NohupWebSocket.requestPermission()
@@ -412,6 +321,143 @@ NohupWebSocket.prototype.notify = function(data) {
         }, function(msg) {
             console.warn(msg);
         });
+};
+
+NohupWebSocket.prototype.send = function(data) {
+    if (this.ws) {
+        if (this.debug || NohupWebSocket.debugAll) {
+            console.debug('NohupWebSocket', 'send', this.url, data);
+        }
+        var key = getRequestKey(data),
+            deferred = Q.defer();
+        this.ws.send(JSON.stringify(data));
+        this.sendMap[key] = deferred;
+        return deferred.promise;
+    } else {
+        throw 'INVALID_STATE_ERR : Pausing to reconnect websocket';
+    }
+};
+
+NohupWebSocket.prototype.sub = function(data) {
+    var key = getRequestKey(data);
+    var deferred = Q.defer();
+    var subs = this.subMap[key];
+    if (subs) {
+        subs.push(deferred);
+    } else {
+        this.subMap[key] = [deferred];
+    }
+    return deferred.promise;
+};
+
+NohupWebSocket.prototype.psub = function(data) {
+    var key = getRequestKey(data);
+    var deferred = Q.defer();
+    if (!key.startsWith("strict:")) {
+        return;
+    }
+
+    key = key.substring(7);
+
+    var subs = this.patternMap[key];
+    if (subs) {
+        subs.push(deferred);
+    } else {
+        this.patternMap[key] = [deferred];
+    }
+    return deferred.promise;
+};
+
+NohupWebSocket.prototype.unsub = function(data) {
+    var key = getRequestKey(data);
+    var subs = this.subMap[key];
+    if (subs) {
+        this.subMap[key] = null;
+        delete this.subMap[key];
+    }
+    return true;
+};
+
+NohupWebSocket.prototype.unpsub = function(data) {
+    var key = getRequestKey(data),
+        psubs = this.patternMap[key];
+
+    var keys = [];
+
+    var ks = null,
+        pMethod = null,
+        pUrl = null,
+        val = null;
+    for (var i in psubs) {
+        ks = i.split(":");
+        pMethod = ks[0];
+        pUrl = ks[1];
+        val = psubs[i];
+        if (val && pMethod == _method && new RegExp(pUrl, "ig").test(_url)) {
+            keys.push(i);
+        }
+    }
+
+    keys.forEach(function(item) {
+        psubs[item] = null;
+        delete psubs[item];
+    })
+};
+
+NohupWebSocket.prototype.notification = function() {
+    var deferred = Q.defer();
+
+    this.notifications.push(deferred);
+
+    return deferred.promise;
+};
+
+NohupWebSocket.prototype.billboard = function() {
+    var deferred = Q.defer();
+
+    this.billboards.push(deferred);
+
+    return deferred.promise;
+};
+
+NohupWebSocket.prototype.receive = function() {
+    var deferred = Q.defer();
+
+    this.receives.push(deferred);
+
+    return deferred.promise;
+};
+
+NohupWebSocket.prototype.pong = function() {
+    // this.send({
+    //     url: 'pong'
+    // });
+    this.send("pong");
+};
+
+/**
+ * Closes the WebSocket connection or connection attempt, if any.
+ * If the connection is already CLOSED, this method does nothing.
+ */
+NohupWebSocket.prototype.close = function(code, reason) {
+    // Default CLOSE_NORMAL code
+    if (typeof code == 'undefined') {
+        code = 1000;
+    }
+    // forcedClose = true;
+    if (this.ws) {
+        this.ws.close(code, reason);
+    }
+};
+
+/**
+ * Additional public API method to refresh the connection if still open (close, re-open).
+ * For example, if the app suspects bad data / missed heart beats, it can try to refresh.
+ */
+NohupWebSocket.prototype.refresh = function() {
+    if (this.ws) {
+        this.ws.close();
+    }
 };
 
 /**

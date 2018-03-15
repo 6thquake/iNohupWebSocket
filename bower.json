@@ -64,7 +64,7 @@
   "title": "",
   "name": "com.ctrip.component.iNohupWebSocket",
   "group": "com.ctrip.component",
-  "version": "0.0.7",
+  "version": "0.0.8",
   "artifact": "iNohupWebSocket",
   "output": "dist"
 }
