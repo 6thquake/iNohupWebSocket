@@ -299,18 +299,44 @@ NohupWebSocket.prototype.onmessage = function(event) {
     var self = this;
     var data = event.data;
 
-    if (!data || !data.request) {
+    if (!data) {
         return;
     }
-    var request = data.request,
-        _url = request.url,
-        _method = request.method || "GET";
+
+    if (data.type === "NOTIFICATION") {
+        var message = data.data;
+        self.notify({
+            title: message.title,
+            icon: message.icon,
+            body: message.message,
+            dir: "auto", // ltr, rtl
+            lang: "zh-cn",
+            badge: message.badge,
+            tag: message.id,
+            image: message.image,
+            protocol: message.protocol,
+            renotify: (message.renotify != 'false') && !!message.renotify,
+            requireInteraction: (message.requireInteraction != 'false') && !!message.requireInteraction,
+            actions: message.actions || [],
+            from: message.from || {},
+            handler: message.handler
+        });
+        return;
+    }
+
+    if (!data.request) {
+        return;
+    }
+
+    var _request = data.request,
+        _url = _request.url,
+        _method = _request.method || "GET";
 
     if (!_url) {
         return;
     }
 
-    var key = getRequestKey(request),
+    var key = getRequestKey(_request),
         send = self.sendMap[key],
         subs = self.subMap[key],
         psubs = self.patternMap;
@@ -344,6 +370,50 @@ NohupWebSocket.prototype.onmessage = function(event) {
 /** An event listener to be called when an error occurs. */
 NohupWebSocket.prototype.onerror = function(event) {};
 
+NohupWebSocket.prototype.notify = function(data) {
+    NohupWebSocket.requestPermission()
+        .then(function(result) {
+            if (result === 'denied') {
+                console.warn('Permission wasn\'t granted. Allow a retry.');
+                return;
+            }
+            if (result === 'default') {
+                console.warn('The permission request was dismissed.');
+                return;
+            }
+
+            // send a notification with the granted permission.
+            var notification = new Notification(
+                data.title + ": " + data.from.namespace + "/" + data.from.user + "发来一条消息！", {
+                    icon: data.icon,
+                    iconUrl: data.icon,
+                    body: data.message || data.body,
+                    message: data.message || data.body,
+                    contextMessage: "",
+                    dir: data.dir || "auto",
+                    lang: data.lang,
+                    badge: data.badge,
+                    tag: data.tag || data.id,
+                    image: data.image,
+                    imageUrl: data.image,
+                    renotify: !!data.renotify,
+                    requireInteraction: !!data.requireInteraction,
+                    actions: data.actions
+                });
+
+            if (data.protocol === "link") {
+                notification.onclick = function(event) {
+                    // prevent the browser from focusing the Notification's tab
+                    // event.preventDefault();
+                    window.open(data.handler, '_blank');
+                    notification.close();
+                }
+            }
+        }, function(msg) {
+            console.warn(msg);
+        });
+};
+
 /**
  * Whether all instances of NohupWebSocket should log debug messages.
  * Setting this to true is the equivalent of setting all instances of NohupWebSocket.debug to true.
@@ -360,3 +430,26 @@ NohupWebSocket.getInstance = function(url, protocols, options) {
     }
     return NohupWebSocket.instance;
 };
+NohupWebSocket.requestPermission = function() {
+    var deferred = Q.defer();
+
+    if (!Notification) {
+        setTimeout(function() {
+            deferred.reject("Desktop notifications not available in your browser. Try Chromium.");
+        }, 10);
+        return deferred.promise;
+    }
+
+    if (Notification.permission !== "granted") {
+        return Notification.requestPermission();
+    }
+
+    setTimeout(function() {
+        deferred.resolve("granted");
+    }, 10);
+    return deferred.promise;
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    NohupWebSocket.requestPermission();
+});
