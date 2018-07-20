@@ -1,36 +1,32 @@
 {
-  "name": "com.ctrip.component.iNohupWebSocket",
-  "group": "com.ctrip.component",
-  "version": "0.0.8",
-  "artifact": "iNohupWebSocket",
-  "description": "nohup websocket client with karn, ping pong, promise and so on.",
+  "name": "@6thquake/inohupwebsocket",
+  "version": "0.1.1",
+  "description": "nohup websocket client with karn, ping pong, sub, friendly api and so on.",
   "main": "dist/NohupWebSocket.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "build": "gulp"
   },
-  "author": "liujc, jxzhuang, yx_zhang",
+  "author": "lico, jxzhuang, yx_zhang",
   "contributors": [],
   "developers": [{
-    "id": "liujc",
-    "name": "liujc",
-    "email": "liujc@ctrip.com",
-    "url": "http://git.dev.sh.ctripcorp.com/u/liujc"
+    "id": "lico.liu",
+    "name": "lico.liu",
+    "email": "lico.atom@gmail.com",
+    "url": "https://github.com/licoliu"
   }, {
     "id": "jxzhuang",
     "name": "jxzhuang",
-    "email": "jxzhuang@ctrip.com",
-    "url": "http://git.dev.sh.ctripcorp.com/u/jxzhuang"
+    "url": "https://github.com/JX-Zhuang"
   }, {
     "id": "yx_zhang",
-    "name": "yx_zhang",
-    "email": "yx_zhang@ctrip.com",
-    "url": "http://git.dev.sh.ctripcorp.com/u/yx_zhang"
+    "name": "yx_zhang"
   }],
   "license": "MIT",
   "dependencies": {
     "q": "1.0.1"
   },
+  "private": false,
   "devDependencies": {
     "gulp": "^3.9.1",
     "gulp-concat": "^2.6.1",

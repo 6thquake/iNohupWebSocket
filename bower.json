@@ -1,27 +1,21 @@
 {
-  "loglevel": "debug",
-  "snapshort": true,
-  "target": "local",
   "organization": {
     "name": "",
     "url": ""
   },
   "contributors": [],
   "developers": [{
-    "id": "liujc",
-    "name": "liujc",
-    "email": "liujc@ctrip.com",
-    "url": "http://git.dev.sh.ctripcorp.com/u/liujc"
+    "id": "lico.liu",
+    "name": "lico.liu",
+    "email": "lico.atom@gmail.com",
+    "url": "https://github.com/licoliu"
   }, {
     "id": "jxzhuang",
     "name": "jxzhuang",
-    "email": "jxzhuang@ctrip.com",
-    "url": "http://git.dev.sh.ctripcorp.com/u/jxzhuang"
+    "url": "https://github.com/JX-Zhuang"
   }, {
     "id": "yx_zhang",
-    "name": "yx_zhang",
-    "email": "yx_zhang@ctrip.com",
-    "url": "http://git.dev.sh.ctripcorp.com/u/yx_zhang"
+    "name": "yx_zhang"
   }],
   "manual": {
     "url": "",
@@ -56,15 +50,10 @@
     "dist/NohupWebSocket.js"
   ],
   "keywords": "",
-  "define": "cmd",
-  "debug": true,
   "license": "MIT",
   "private": false,
-  "description": "nohup websocket client with karn, ping pong, promise and so on.",
-  "title": "",
-  "name": "com.ctrip.component.iNohupWebSocket",
-  "group": "com.ctrip.component",
-  "version": "0.0.8",
-  "artifact": "iNohupWebSocket",
+  "description": "nohup websocket client with karn, ping pong, sub, friendly api and so on.",
+  "name": "inohupwebsocket",
+  "version": "0.1.1",
   "output": "dist"
 }
